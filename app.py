@@ -4,15 +4,68 @@ import tempfile
 import subprocess
 import shutil
 import uuid
+import os
 from pathlib import Path
 
 import streamlit as st
 
-
 # -----------------------------
-# 기본 화면
+# 1. 기본 화면 설정 (가장 먼저 실행되어야 함)
 # -----------------------------
 st.set_page_config(page_title="PPT → PDF 일괄 변환", layout="centered")
+
+# -----------------------------
+# 2. [추가된 기능] 폰트 강제 설치 함수 (대문자/소문자 모두 포함)
+# -----------------------------
+def install_custom_fonts():
+    """
+    fonts 폴더에 있는 폰트 파일(*.ttf, *.ttc)을 
+    리눅스 서버의 폰트 저장소(~/.local/share/fonts)로 복사하고 설치합니다.
+    """
+    # 우리가 만든 fonts 폴더 위치
+    font_dir = Path("fonts")
+    
+    # 서버(리눅스)가 폰트를 읽는 위치
+    dest_dir = Path.home() / ".local/share/fonts"
+    
+    # fonts 폴더가 없으면 설치 안 함
+    if not font_dir.exists():
+        return
+
+    # 폰트 저장소 방 만들기
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 찾을 파일 확장자 목록 (대문자 .TTF, .TTC 중요!)
+    font_patterns = ["*.ttf", "*.TTF", "*.ttc", "*.TTC"]
+    found_files = []
+    
+    # 모든 패턴을 돌면서 파일 찾기
+    for pattern in font_patterns:
+        found_files.extend(list(font_dir.glob(pattern)))
+
+    # 찾은 폰트 파일들을 서버 방으로 복사
+    for font_file in found_files:
+        try:
+            shutil.copy(font_file, dest_dir)
+            print(f"✅ 폰트 설치 성공: {font_file.name}")
+        except Exception as e:
+            print(f"⚠️ 폰트 복사 중 오류 ({font_file.name}): {e}")
+
+    # (중요) 서버에게 "새 폰트 들어왔어!" 라고 알려주기 (캐시 갱신)
+    if found_files:
+        try:
+            subprocess.run(["fc-cache", "-fv"], capture_output=True)
+            print("✅ 폰트 캐시 갱신 완료")
+        except Exception as e:
+            print(f"⚠️ fc-cache 실행 실패: {e}")
+
+# 프로그램 시작하자마자 폰트 설치 실행!
+install_custom_fonts()
+
+
+# -----------------------------
+# 3. 화면 타이틀 및 설명
+# -----------------------------
 st.title("ZIP 폴더 안의 PPT만 골라서 PDF로 일괄 변환")
 
 st.write("✅ PPT/PPTX/PPTM만 PDF로 변환합니다. (워드/엑셀/이미지 등은 자동으로 제외)")
@@ -21,7 +74,7 @@ st.write("사용법: PPT가 들어있는 폴더를 ZIP으로 압축 → 업로�
 
 
 # -----------------------------
-# 유틸: soffice 경로 찾기(로컬/서버 모두)
+# 4. 유틸: soffice 경로 찾기(로컬/서버 모두)
 # -----------------------------
 def find_soffice():
     # 1) PATH에서 찾기
@@ -50,7 +103,7 @@ SOFFICE = find_soffice()
 
 
 # -----------------------------
-# 파일명 정렬: CH01 / CH02 ... 우선
+# 5. 파일명 정렬: CH01 / CH02 ... 우선
 # -----------------------------
 def chapter_key(path: Path):
     name = path.name.upper()
@@ -66,7 +119,7 @@ def chapter_key(path: Path):
 
 
 # -----------------------------
-# 안전한 파일명 만들기
+# 6. 안전한 파일명 만들기
 # -----------------------------
 def safe_filename(name: str, max_len: int = 80) -> str:
     # OS에서 문제되는 문자 제거
@@ -80,7 +133,7 @@ def safe_filename(name: str, max_len: int = 80) -> str:
 
 
 # -----------------------------
-# PPT → PDF 변환 (0KB/손상 방지 포함)
+# 7. PPT → PDF 변환 (0KB/손상 방지 포함)
 # -----------------------------
 def convert_ppt_to_pdf(input_path: Path, work_dir: Path, out_dir: Path, out_name: str) -> Path:
     if not SOFFICE:
@@ -136,7 +189,7 @@ def convert_ppt_to_pdf(input_path: Path, work_dir: Path, out_dir: Path, out_name
 
 
 # -----------------------------
-# 업로드
+# 8. 업로드 및 메인 실행 로직
 # -----------------------------
 uploaded_zip = st.file_uploader("PPT가 들어있는 폴더를 ZIP으로 압축한 파일을 업로드", type=["zip"])
 
