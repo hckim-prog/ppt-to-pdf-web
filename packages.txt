@@ -2,3 +2,7 @@ libreoffice
 libreoffice-impress
 fonts-noto-cjk
 fonts-nanum
+fonts-nanum-extra
+fonts-nanum-coding
+fonts-unfonts-core
+fonts-liberation
